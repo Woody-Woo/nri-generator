@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with GPT-3</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .message {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .message p {
+            margin: 0;
+        }
+
+        .user-icon, .ai-icon {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .user-icon {
+            color: blue;
+        }
+
+        .ai-icon {
+            color: green;
+        }
+
+        .generated-image {
+            display: block;
+            max-width: 100%;
+            margin: 10px 0;
+        }
+
+        #user_input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+
+        #history-summary-container {
+            position: fixed;
+            left: 10px;
+            top: 10px;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div id="history-summary-container">
+        <h3>Герой выглядит так:</h3>
+        <textarea id="hero_description" placeholder="Введите описание героя..." rows="10" cols="40">{{ hero_description }}</textarea>
+    </div>
+    <div style="position: absolute; top: 10px; right: 10px;">
+        <button id="generate-image-btn">Generate Image</button>
+        <div id="generated-image-container">
+            <img id="generated-image" src="" alt="Generated image" style="display: none; max-width: 100%;">
+        </div>
+    </div>
+    <div id="chat-history">
+        {% for message, img_path in conversation_history %}
+            <div class="message">
+                {% if message.startswith("user:") %}
+                    <span class="user-icon">🧑</span>
+                {% elif message.startswith("assistant:") %}
+                    <span class="ai-icon">🤖</span>
+                {% endif %}
+                <p>{{ message }}</p>
+            </div>
+            {% if img_path %}
+                <img class="generated-image" src="{{ url_for('image', img_path=img_path) }}" alt="Generated image">
+            {% endif %}
+        {% endfor %}
+    </div>
+    
+    
+    <form id="chat-form" action="/chat" method="post">
+        <input type="text" name="user_input" id="user_input" placeholder="Type your message..." autocomplete="off">
+    </form>
+    <div id="loading" style="display: none;">Loading...</div>
+    <script>
+        function setLoading(loading) {
+            if (loading) {
+                $("#user_input").prop("disabled", true);
+                $("#loading").show();
+            } else {
+                $("#user_input").prop("disabled", false);
+                $("#loading").hide();
+            }
+        }
+
+        $("#chat-form").on("submit", function(event) {
+            event.preventDefault();
+            var user_input = $("#user_input").val();
+            var hero_description = $("#hero_description").val();
+            setLoading(true);
+            $.post("/chat", { user_input: user_input , hero_description: hero_description}, function (data) {
+                var ai_response = data.ai_response;
+                var img_url = data.img_url;
+                $("#chat-history").append(
+                    `<div class="message"><span class="user-icon">🧑</span><p>user: ${user_input}</p></div>`
+                );
+                $("#chat-history").append(
+                    `<div class="message"><span class="ai-icon">🤖</span><p>assistant: ${ai_response}</p></div>`
+                );
+                if (img_url) {
+                    $("#chat-history").append(
+                        `<img class="generated-image" src="image/${img_url}" alt="Generated image">`
+                    );
+                }
+                $("#user_input").val("");
+                setLoading(false);
+            });
+        });
+
+        $("#user_input").on("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                $("#chat-form").submit();
+            }
+        });
+
+        $("#generate-image-btn").on("click", function() {
+        var prompt = "Draw a random cartoon picture in a fantasy style";
+        $.post("/generate_image", { prompt: prompt }, function (data) {
+            var img_url = data.img_url;
+            $("#generated-image").attr("src", "image/" + img_url);
+            $("#generated-image").show();
+        });
+
+        $("#chat-form").on("submit", function(event) {
+        // ...
+        $.post("/chat", { user_input: user_input }, function (data) {
+            // ...
+            var history_summary = data.history_summary;
+            $("#history-summary").val(history_summary);
+        });
+    });
+    });
+    </script>
+</body>
+</html>
